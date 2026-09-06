@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+data/raw/*.csv
+model/trained_model.joblib
+data/fighter_stats.csv
+.DS_Store
+node_modules/
