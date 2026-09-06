@@ -1,52 +1,51 @@
 """
-Builds a per-fighter stats lookup table.
+Builds a per-fighter stats lookup table used at prediction time.
 
-Why this exists: train_model.py learns from fight-vs-fight rows (each
-row already has both fighters' stats side by side). But at prediction
-time, the user just picks two fighter NAMES from a dropdown — we need
-somewhere to look up "what are Fighter X's average stats" so we can
-compute the same diff features the model expects.
-
-This script aggregates each fighter's average stats across their
-fight history and saves one row per fighter to data/fighter_stats.csv.
-
-PLACEHOLDER column names — update RAW_STAT_PAIRS-equivalent columns
-below once you know your dataset's real schema (same columns as
-train_model.py's RAW_STAT_PAIRS, just not diffed yet).
+fighter.csv already has one row per fighter with career stats, so
+this mostly just selects the relevant columns and computes current
+age from date of birth.
 """
 
 import pandas as pd
 from pathlib import Path
+from datetime import datetime
+import re
 
-DATA_PATH = Path(__file__).parent.parent / "data" / "raw"
+def parse_height(height_str):
+    """Converts "5' 10\"" style strings to total inches as a float."""
+    if pd.isna(height_str):
+        return None
+    match = re.match(r"(\d+)'\s*(\d+)", str(height_str))
+    if not match:
+        return None
+    feet, inches = int(match.group(1)), int(match.group(2))
+    return feet * 12 + inches
+
+DATA_PATH = Path(__file__).parent.parent / "data" / "raw" / "fighter.csv"
 OUT_PATH = Path(__file__).parent.parent / "data" / "fighter_stats.csv"
 
-# placeholder — update to match your real dataset's fighter name + stat columns
-RED_NAME_COL = "r_fighter_name"
-BLUE_NAME_COL = "b_fighter_name"
-RED_STAT_COLS = ["r_wins", "r_losses", "r_height", "r_reach", "r_age",
-                  "r_sig_str_landed_pm", "r_takedown_avg"]
-BLUE_STAT_COLS = ["b_wins", "b_losses", "b_height", "b_reach", "b_age",
-                   "b_sig_str_landed_pm", "b_takedown_avg"]
-STAT_NAMES = ["wins", "losses", "height", "reach", "age",
-              "sig_str_landed_pm", "takedown_avg"]
+STAT_NAMES = [
+    "height", "weight_lbs", "reach_inches",
+    "slpm", "str_acc", "sapm", "str_def",
+    "td_avg", "td_acc", "td_def", "sub_avg",
+]
 
 
 def build():
-    csv_files = list(DATA_PATH.glob("*.csv"))
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV found in {DATA_PATH}")
-    df = pd.read_csv(csv_files[0])
+    if not DATA_PATH.exists():
+        raise FileNotFoundError(f"fighter.csv not found at {DATA_PATH}")
+    df = pd.read_csv(DATA_PATH)
+    df["height"] = df["height"].apply(parse_height)
 
-    red = df[[RED_NAME_COL] + RED_STAT_COLS].rename(
-        columns=dict(zip([RED_NAME_COL] + RED_STAT_COLS, ["fighter_name"] + STAT_NAMES))
-    )
-    blue = df[[BLUE_NAME_COL] + BLUE_STAT_COLS].rename(
-        columns=dict(zip([BLUE_NAME_COL] + BLUE_STAT_COLS, ["fighter_name"] + STAT_NAMES))
-    )
+    df["dob"] = pd.to_datetime(df["dob"], errors="coerce")
+    today = pd.Timestamp(datetime.now())
+    df["age"] = (today - df["dob"]).dt.days / 365.25
 
-    all_fighters = pd.concat([red, blue], ignore_index=True)
-    fighter_stats = all_fighters.groupby("fighter_name", as_index=False).mean(numeric_only=True)
+    keep_cols = ["fighter_name"] + STAT_NAMES + ["age"]
+    fighter_stats = df[keep_cols].dropna(subset=["fighter_name"])
+
+    # if there are duplicate names, keep the first occurrence
+    fighter_stats = fighter_stats.drop_duplicates(subset="fighter_name")
 
     fighter_stats.to_csv(OUT_PATH, index=False)
     print(f"Saved {len(fighter_stats)} fighters to {OUT_PATH}")
