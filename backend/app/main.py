@@ -18,15 +18,13 @@ FIGHTER_STATS_PATH = BASE / "data" / "fighter_stats.csv"
 
 app = FastAPI(title="UFC Fight Predictor API")
 
-# allow the React dev server (and later your deployed frontend) to call this
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten this to your real frontend URL before shipping
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# loaded once at startup
 _model_bundle = None
 _fighter_stats = None
 
@@ -40,12 +38,14 @@ def load_artifacts():
         raise RuntimeError(f"Fighter stats not found at {FIGHTER_STATS_PATH}. "
                             f"Run model/build_fighter_stats.py first.")
     _model_bundle = joblib.load(MODEL_PATH)
-    _fighter_stats = pd.read_csv(FIGHTER_STATS_PATH).set_index("fighter_name")
+    _fighter_stats_raw = pd.read_csv(FIGHTER_STATS_PATH)
+    _fighter_stats_raw["fighter_name_lower"] = _fighter_stats_raw["fighter_name"].str.lower()
+    _fighter_stats = _fighter_stats_raw.set_index("fighter_name_lower")
 
 
 @app.get("/fighters")
 def list_fighters():
-    return {"fighters": sorted(_fighter_stats.index.tolist())}
+    return {"fighters": sorted(_fighter_stats["fighter_name"].tolist())}
 
 
 @app.get("/predict")
@@ -53,18 +53,19 @@ def predict(
     f1: str = Query(..., description="Fighter 1 name (red corner)"),
     f2: str = Query(..., description="Fighter 2 name (blue corner)"),
 ):
-    if f1 not in _fighter_stats.index:
+    f1_key, f2_key = f1.lower(), f2.lower()
+
+    if f1_key not in _fighter_stats.index:
         raise HTTPException(404, f"Fighter not found: {f1}")
-    if f2 not in _fighter_stats.index:
+    if f2_key not in _fighter_stats.index:
         raise HTTPException(404, f"Fighter not found: {f2}")
 
-    stats1 = _fighter_stats.loc[f1]
-    stats2 = _fighter_stats.loc[f2]
+    stats1 = _fighter_stats.loc[f1_key]
+    stats2 = _fighter_stats.loc[f2_key]
 
     model = _model_bundle["model"]
     feature_cols = _model_bundle["feature_cols"]
 
-    # rebuild the same diff features used in training: diff_<stat> = f1_stat - f2_stat
     row = {}
     for col in feature_cols:
         stat_name = col.replace("diff_", "")
@@ -80,7 +81,7 @@ def predict(
         "fighter_2_win_probability": round(float(1 - prob_f1_wins), 3),
         "stat_comparison": {
             stat: {"fighter_1": float(stats1.get(stat, 0)), "fighter_2": float(stats2.get(stat, 0))}
-            for stat in ["wins", "losses", "height", "reach", "age", "sig_str_landed_pm", "takedown_avg"]
+            for stat in ["height", "weight_lbs", "reach_inches", "age", "slpm", "td_avg"]
             if stat in stats1.index
         },
     }
