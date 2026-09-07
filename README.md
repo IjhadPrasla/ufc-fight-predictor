@@ -45,10 +45,16 @@ pip install -r requirements.txt
    Then test it at `http://localhost:8000/docs` (FastAPI's built-in
    interactive API explorer).
 
+## Live Demo
+🔗 [Try it here](https://ufc-fight-predictor-eight.vercel.app/)
+
+Note: the backend is hosted on Render's free tier, which spins down after
+15 minutes of inactivity — the first prediction after idle time may take
+30-60 seconds while it wakes back up.
+
 ## Status
-- [x] Project scaffold
-- [ ] Real dataset loaded
-- [ ] Model trained and evaluated
-- [ ] Backend tested end-to-end
-- [ ] Frontend built
-- [ ] Deployed with live link
+- [x] Data pipeline (Kaggle UFC dataset, cleaned, feature-engineered without leakage)
+- [x] Model trained (logistic regression, 68.2% accuracy, 0.723 AUC)
+- [x] Backend API (FastAPI, deployed on Render)
+- [x] Frontend (React + Vite, deployed on Vercel)
+- [x] End-to-end deployment, live and working
