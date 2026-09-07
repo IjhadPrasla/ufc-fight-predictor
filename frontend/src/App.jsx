@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://ufc-fight-predictor-ep0g.onrender.com";
 
 function getInitials(name) {
   if (!name) return "?";
