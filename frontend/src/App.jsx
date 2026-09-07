@@ -22,7 +22,7 @@ function weightClassWarning(stats1, stats2) {
   return null;
 }
 
-function FighterCard({ label, name, fighters, onChange, stats, isWinner }) {
+function FighterCard({ label, name, fighters, onChange, stats, isWinner, fightersLoading }) {
   return (
     <div className={`fighter-card ${isWinner ? "fighter-card--winner" : ""}`}>
       <span className="fighter-card__label">{label}</span>
@@ -31,8 +31,11 @@ function FighterCard({ label, name, fighters, onChange, stats, isWinner }) {
         className="fighter-card__select"
         value={name}
         onChange={(e) => onChange(e.target.value)}
+        disabled={fightersLoading}
       >
-        <option value="">Choose a fighter</option>
+        <option value="">
+          {fightersLoading ? "Waking up server… (~30-60s)" : "Choose a fighter"}
+        </option>
         {fighters.map((f) => (
           <option key={f} value={f}>{f}</option>
         ))}
@@ -53,6 +56,7 @@ function FighterCard({ label, name, fighters, onChange, stats, isWinner }) {
 
 export default function App() {
   const [fighters, setFighters] = useState([]);
+  const [fightersLoading, setFightersLoading] = useState(true);
   const [f1, setF1] = useState("");
   const [f2, setF2] = useState("");
   const [result, setResult] = useState(null);
@@ -70,7 +74,8 @@ export default function App() {
     fetch(`${API_BASE}/fighters`)
       .then((res) => res.json())
       .then((data) => setFighters(data.fighters))
-      .catch(() => setError("Couldn't reach the prediction server. Is the backend running?"));
+      .catch(() => setError("Couldn't reach the prediction server. Is the backend running?"))
+      .finally(() => setFightersLoading(false));
   }, []);
 
   const canPredict = f1 && f2 && f1 !== f2;
@@ -124,6 +129,7 @@ export default function App() {
             td_avg: result.stat_comparison.td_avg?.fighter_1,
           } : null}
           isWinner={f1Wins}
+          fightersLoading={fightersLoading}
         />
 
         <div className="matchup__center">
@@ -151,6 +157,7 @@ export default function App() {
             td_avg: result.stat_comparison.td_avg?.fighter_2,
           } : null}
           isWinner={f2Wins}
+          fightersLoading={fightersLoading}
         />
       </div>
 
