@@ -44,6 +44,14 @@ def build():
     keep_cols = ["fighter_name"] + STAT_NAMES + ["age"]
     fighter_stats = df[keep_cols].dropna(subset=["fighter_name"])
 
+    # Impute missing stats with the column median rather than dropping fighters
+    # entirely — a fighter with no UFC striking data yet still deserves a
+    # reasonable estimate rather than crashing the prediction.
+    for col in STAT_NAMES + ["age"]:
+        if col in fighter_stats.columns:
+            median_val = fighter_stats[col].median()
+            fighter_stats[col] = fighter_stats[col].fillna(median_val)
+
     # if there are duplicate names, keep the first occurrence
     fighter_stats = fighter_stats.drop_duplicates(subset="fighter_name")
 
