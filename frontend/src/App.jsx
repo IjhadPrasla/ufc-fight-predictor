@@ -58,6 +58,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowLoad, setSlowLoad] = useState(false);
   const weightWarning = result?.stat_comparison?.weight_lbs
     ? weightClassWarning(
         { weight_lbs: result.stat_comparison.weight_lbs.fighter_1 },
@@ -78,6 +79,7 @@ export default function App() {
     setLoading(true);
     setError("");
     setResult(null);
+    const slowTimer = setTimeout(() => setSlowLoad(true), 4000);
     try {
       const res = await fetch(
         `${API_BASE}/predict?f1=${encodeURIComponent(f1)}&f2=${encodeURIComponent(f2)}`
@@ -91,7 +93,9 @@ export default function App() {
     } catch (e) {
       setError(e.message);
     } finally {
+      clearTimeout(slowTimer);
       setLoading(false);
+      setSlowLoad(false);
     }
   }
 
@@ -129,7 +133,7 @@ export default function App() {
             onClick={handlePredict}
             disabled={!canPredict || loading}
           >
-            {loading ? "Calculating…" : "Predict"}
+            {loading ? (slowLoad ? "Waking up server…" : "Calculating…") : "Predict"}
           </button>
         </div>
 
